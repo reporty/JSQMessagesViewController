@@ -536,93 +536,109 @@ JSQMessagesKeyboardControllerDelegate>
     return 1;
 }
 
+- (void)configureCell:(JSQMessagesCollectionViewCell *)cell atIndexPath: (NSIndexPath *)indexPath
+{
+  id<JSQMessageData> messageItem = [_collectionView.dataSource collectionView:_collectionView messageDataForItemAtIndexPath:indexPath];
+  NSParameterAssert(messageItem != nil);
+  
+  NSString *messageSenderId = [messageItem senderId];
+  NSParameterAssert(messageSenderId != nil);
+  
+  BOOL isOutgoingMessage = [messageSenderId isEqualToString:self.senderId];
+  BOOL isMediaMessage = [messageItem isMediaMessage];
+  
+  cell.delegate = _collectionView;
+  
+  if (!isMediaMessage) {
+    cell.textView.text = [messageItem text];
+    
+    if ([UIDevice jsq_isCurrentDeviceBeforeiOS8]) {
+      //  workaround for iOS 7 textView data detectors bug
+      cell.textView.text = nil;
+      cell.textView.attributedText = [[NSAttributedString alloc] initWithString:[messageItem text]
+                                                                     attributes:@{ NSFontAttributeName : _collectionView.collectionViewLayout.messageBubbleFont }];
+    }
+    
+    NSParameterAssert(cell.textView.text != nil);
+    
+    id<JSQMessageBubbleImageDataSource> bubbleImageDataSource = [_collectionView.dataSource collectionView:_collectionView messageBubbleImageDataForItemAtIndexPath:indexPath];
+    cell.messageBubbleImageView.image = [bubbleImageDataSource messageBubbleImage];
+    cell.messageBubbleImageView.highlightedImage = [bubbleImageDataSource messageBubbleHighlightedImage];
+  }
+  else {
+    id<JSQMessageMediaData> messageMedia = [messageItem media];
+    cell.mediaView = [messageMedia mediaView] ?: [messageMedia mediaPlaceholderView];
+    NSParameterAssert(cell.mediaView != nil);
+  }
+  
+  BOOL needsAvatar = YES;
+  if (isOutgoingMessage && CGSizeEqualToSize(_collectionView.collectionViewLayout.outgoingAvatarViewSize, CGSizeZero)) {
+    needsAvatar = NO;
+  }
+  else if (!isOutgoingMessage && CGSizeEqualToSize(_collectionView.collectionViewLayout.incomingAvatarViewSize, CGSizeZero)) {
+    needsAvatar = NO;
+  }
+  
+  id<JSQMessageAvatarImageDataSource> avatarImageDataSource = nil;
+  if (needsAvatar) {
+    avatarImageDataSource = [_collectionView.dataSource collectionView:_collectionView avatarImageDataForItemAtIndexPath:indexPath];
+    if (avatarImageDataSource != nil) {
+      
+      UIImage *avatarImage = [avatarImageDataSource avatarImage];
+      if (avatarImage == nil) {
+        cell.avatarImageView.image = [avatarImageDataSource avatarPlaceholderImage];
+        cell.avatarImageView.highlightedImage = nil;
+      }
+      else {
+        cell.avatarImageView.image = avatarImage;
+        cell.avatarImageView.highlightedImage = [avatarImageDataSource avatarHighlightedImage];
+      }
+    }
+  }
+  
+  cell.cellTopLabel.attributedText = [_collectionView.dataSource collectionView:_collectionView attributedTextForCellTopLabelAtIndexPath:indexPath];
+  cell.messageBubbleTopLabel.attributedText = [_collectionView.dataSource collectionView:_collectionView attributedTextForMessageBubbleTopLabelAtIndexPath:indexPath];
+  cell.cellBottomLabel.attributedText = [_collectionView.dataSource collectionView:_collectionView attributedTextForCellBottomLabelAtIndexPath:indexPath];
+  
+  CGFloat bubbleTopLabelInset = (avatarImageDataSource != nil) ? 60.0f : 15.0f;
+  
+  if (isOutgoingMessage) {
+    cell.messageBubbleTopLabel.textInsets = UIEdgeInsetsMake(0.0f, 0.0f, 0.0f, bubbleTopLabelInset);
+  }
+  else {
+    cell.messageBubbleTopLabel.textInsets = UIEdgeInsetsMake(0.0f, bubbleTopLabelInset, 0.0f, 0.0f);
+  }
+  
+  cell.textView.dataDetectorTypes = UIDataDetectorTypeAll;
+  
+  cell.backgroundColor = [UIColor clearColor];
+  cell.layer.rasterizationScale = [UIScreen mainScreen].scale;
+  cell.layer.shouldRasterize = YES;
+}
+
 - (UICollectionViewCell *)collectionView:(JSQMessagesCollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    id<JSQMessageData> messageItem = [collectionView.dataSource collectionView:collectionView messageDataForItemAtIndexPath:indexPath];
-    NSParameterAssert(messageItem != nil);
-
-    BOOL isOutgoingMessage = [self isOutgoingMessage:messageItem];
-    BOOL isMediaMessage = [messageItem isMediaMessage];
-
-    NSString *cellIdentifier = nil;
-    if (isMediaMessage) {
-        cellIdentifier = isOutgoingMessage ? self.outgoingMediaCellIdentifier : self.incomingMediaCellIdentifier;
-    }
-    else {
-        cellIdentifier = isOutgoingMessage ? self.outgoingCellIdentifier : self.incomingCellIdentifier;
-    }
-
-    JSQMessagesCollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:cellIdentifier forIndexPath:indexPath];
-    cell.delegate = collectionView;
-
-    if (!isMediaMessage) {
-        cell.textView.text = [messageItem text];
-
-        if ([UIDevice jsq_isCurrentDeviceBeforeiOS8]) {
-            //  workaround for iOS 7 textView data detectors bug
-            cell.textView.text = nil;
-            cell.textView.attributedText = [[NSAttributedString alloc] initWithString:[messageItem text]
-                                                                           attributes:@{ NSFontAttributeName : collectionView.collectionViewLayout.messageBubbleFont }];
-        }
-
-        NSParameterAssert(cell.textView.text != nil);
-
-        id<JSQMessageBubbleImageDataSource> bubbleImageDataSource = [collectionView.dataSource collectionView:collectionView messageBubbleImageDataForItemAtIndexPath:indexPath];
-        cell.messageBubbleImageView.image = [bubbleImageDataSource messageBubbleImage];
-        cell.messageBubbleImageView.highlightedImage = [bubbleImageDataSource messageBubbleHighlightedImage];
-    }
-    else {
-        id<JSQMessageMediaData> messageMedia = [messageItem media];
-        cell.mediaView = [messageMedia mediaView] ?: [messageMedia mediaPlaceholderView];
-        NSParameterAssert(cell.mediaView != nil);
-    }
-
-    BOOL needsAvatar = YES;
-    if (isOutgoingMessage && CGSizeEqualToSize(collectionView.collectionViewLayout.outgoingAvatarViewSize, CGSizeZero)) {
-        needsAvatar = NO;
-    }
-    else if (!isOutgoingMessage && CGSizeEqualToSize(collectionView.collectionViewLayout.incomingAvatarViewSize, CGSizeZero)) {
-        needsAvatar = NO;
-    }
-
-    id<JSQMessageAvatarImageDataSource> avatarImageDataSource = nil;
-    if (needsAvatar) {
-        avatarImageDataSource = [collectionView.dataSource collectionView:collectionView avatarImageDataForItemAtIndexPath:indexPath];
-        if (avatarImageDataSource != nil) {
-
-            UIImage *avatarImage = [avatarImageDataSource avatarImage];
-            if (avatarImage == nil) {
-                cell.avatarImageView.image = [avatarImageDataSource avatarPlaceholderImage];
-                cell.avatarImageView.highlightedImage = nil;
-            }
-            else {
-                cell.avatarImageView.image = avatarImage;
-                cell.avatarImageView.highlightedImage = [avatarImageDataSource avatarHighlightedImage];
-            }
-        }
-    }
-
-    cell.cellTopLabel.attributedText = [collectionView.dataSource collectionView:collectionView attributedTextForCellTopLabelAtIndexPath:indexPath];
-    cell.messageBubbleTopLabel.attributedText = [collectionView.dataSource collectionView:collectionView attributedTextForMessageBubbleTopLabelAtIndexPath:indexPath];
-    cell.cellBottomLabel.attributedText = [collectionView.dataSource collectionView:collectionView attributedTextForCellBottomLabelAtIndexPath:indexPath];
-
-    CGFloat bubbleTopLabelInset = (avatarImageDataSource != nil) ? 60.0f : 15.0f;
-
-    if (isOutgoingMessage) {
-        cell.messageBubbleTopLabel.textInsets = UIEdgeInsetsMake(0.0f, 0.0f, 0.0f, bubbleTopLabelInset);
-    }
-    else {
-        cell.messageBubbleTopLabel.textInsets = UIEdgeInsetsMake(0.0f, bubbleTopLabelInset, 0.0f, 0.0f);
-    }
-
-    cell.textView.dataDetectorTypes = UIDataDetectorTypeAll;
-
-    cell.backgroundColor = [UIColor clearColor];
-    cell.layer.rasterizationScale = [UIScreen mainScreen].scale;
-    cell.layer.shouldRasterize = YES;
-    [self collectionView:collectionView accessibilityForCell:cell indexPath:indexPath message:messageItem];
-
-    return cell;
+  id<JSQMessageData> messageItem = [collectionView.dataSource collectionView:collectionView messageDataForItemAtIndexPath:indexPath];
+  NSParameterAssert(messageItem != nil);
+  
+  NSString *messageSenderId = [messageItem senderId];
+  NSParameterAssert(messageSenderId != nil);
+  
+  BOOL isOutgoingMessage = [messageSenderId isEqualToString:self.senderId];
+  BOOL isMediaMessage = [messageItem isMediaMessage];
+  
+  NSString *cellIdentifier = nil;
+  if (isMediaMessage) {
+    cellIdentifier = isOutgoingMessage ? self.outgoingMediaCellIdentifier : self.incomingMediaCellIdentifier;
+  }
+  else {
+    cellIdentifier = isOutgoingMessage ? self.outgoingCellIdentifier : self.incomingCellIdentifier;
+  }
+  
+  JSQMessagesCollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:cellIdentifier forIndexPath:indexPath];
+  
+  [self configureCell:cell atIndexPath:indexPath];
+  return cell;
 }
 
 - (void)collectionView:(JSQMessagesCollectionView *)collectionView

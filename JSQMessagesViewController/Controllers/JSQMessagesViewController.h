@@ -324,4 +324,5 @@
  */
 - (void)didReceiveMenuWillHideNotification:(NSNotification *)notification;
 
+- (void)configureCell:(JSQMessagesCollectionViewCell *)cell atIndexPath: (NSIndexPath *)indexPath;
 @end
