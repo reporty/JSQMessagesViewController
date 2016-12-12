@@ -93,6 +93,11 @@ FOUNDATION_EXPORT NSString * const JSQMessagesKeyboardControllerUserInfoKeyKeybo
 @property (weak, nonatomic, readonly) UIPanGestureRecognizer *panGestureRecognizer;
 
 /**
+ *  decides if pan gestures will be used for showing/hiding the keyboard
+ */
+@property (assign, nonatomic) BOOL shouldUsePanGestures;
+
+/**
  *  Specifies the distance from the keyboard at which the `panGestureRecognizer`
  *  should trigger user interaction with the keyboard by panning.
  *
